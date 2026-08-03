@@ -139,12 +139,12 @@ export function render_notifications_for_narrow(): void {
     const users_typing = user_ids
         .map((user_id) => people.get_user_by_id_assert_valid(user_id))
         .filter((person) => !person.is_inaccessible_user)
-        .map((person) => ({
-            ...person,
-            typing_progress: typing_key
+        .map((person) => {
+            const typing_progress = typing_key
                 ? typing_data.get_typist_progress(typing_key, person.user_id)?.progress_text
-                : undefined,
-        }));
+                : undefined;
+            return typing_progress === undefined ? person : {...person, typing_progress};
+        });
     const num_of_users_typing = users_typing.length;
 
     if (num_of_users_typing === 0) {

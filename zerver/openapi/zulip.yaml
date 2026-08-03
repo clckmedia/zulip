@@ -25011,6 +25011,8 @@ paths:
             parameters:
               enum:
                 - topic
+                - progress_text
+                - turn_id
       requestBody:
         required: true
         content:

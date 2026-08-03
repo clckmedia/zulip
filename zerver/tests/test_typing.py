@@ -955,6 +955,32 @@ class TypingProgressTest(ZulipTestCase):
         self.assertNotIn("progress_text", event)
         self.assertEqual(event["turn_id"], turn_id)
 
+    def test_bot_progress_is_forwarded_for_streams(self) -> None:
+        owner = self.example_user("hamlet")
+        bot = self.create_test_bot("typing-progress-stream-bot", owner)
+        stream_name = self.get_streams(owner)[0]
+        self.subscribe(bot, stream_name)
+        stream_id = self.get_stream_id(stream_name)
+
+        with self.capture_send_event_calls(expected_num_events=1) as events:
+            result = self.api_post(
+                bot,
+                "/api/v1/typing",
+                {
+                    "type": "stream",
+                    "op": "start",
+                    "stream_id": str(stream_id),
+                    "topic": "Agent progress",
+                    "progress_text": "Checking the request",
+                    "turn_id": "hermes-turn-stream-123",
+                },
+            )
+
+        self.assert_json_success(result)
+        event = events[0]["event"]
+        self.assertEqual(event["progress_text"], "Checking the request")
+        self.assertEqual(event["turn_id"], "hermes-turn-stream-123")
+
     def test_progress_text_is_bot_only_and_bounded(self) -> None:
         sender = self.example_user("hamlet")
         recipient = self.example_user("othello")

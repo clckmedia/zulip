@@ -127,10 +127,10 @@ run_test("typing progress updates and stops are transient", () => {
         op: "start",
         message_type: "direct",
         sender: {user_id: vronsky.user_id, email: vronsky.email},
-        recipients: group.map((user_id) => ({
-            user_id,
-            email: people.get_user_by_id_assert_valid(user_id).email,
-        })),
+        recipients: [
+            {user_id: anna.user_id, email: anna.email},
+            {user_id: vronsky.user_id, email: vronsky.email},
+        ],
         progress_text: "Checking the request",
         turn_id: "turn-1",
     };

@@ -4,11 +4,17 @@ import * as util from "./util.ts";
 // See docs/subsystems/typing-indicators.md for details on typing indicators.
 
 const typists_dict = new Map<string, number[]>();
+export type TypistProgress = {
+    progress_text: string | undefined;
+    turn_id: string | undefined;
+};
+const typist_progress_dict = new Map<string, Map<number, TypistProgress>>();
 const edit_message_typing_ids = new Set<number>();
 const inbound_timer_dict = new Map<string, ReturnType<typeof setInterval> | undefined>();
 
 export function clear_for_testing(): void {
     typists_dict.clear();
+    typist_progress_dict.clear();
     inbound_timer_dict.clear();
 }
 
@@ -38,9 +44,31 @@ export function remove_typist(key: string, typist: number): boolean {
     }
 
     current = current.filter((user_id) => user_id !== typist);
-
     typists_dict.set(key, current);
+    const progress_for_conversation = typist_progress_dict.get(key);
+    progress_for_conversation?.delete(typist);
+    if (progress_for_conversation?.size === 0) {
+        typist_progress_dict.delete(key);
+    }
     return true;
+}
+
+// Progress is intentionally keyed by both conversation and sender: A user can
+// type in more than one conversation, and each start event replaces this value.
+export function set_typist_progress(
+    key: string,
+    typist: number,
+    progress_text: string | undefined,
+    turn_id: string | undefined,
+): void {
+    const progress_for_conversation =
+        typist_progress_dict.get(key) ?? new Map<number, TypistProgress>();
+    progress_for_conversation.set(typist, {progress_text, turn_id});
+    typist_progress_dict.set(key, progress_for_conversation);
+}
+
+export function get_typist_progress(key: string, typist: number): TypistProgress | undefined {
+    return typist_progress_dict.get(key)?.get(typist);
 }
 
 export function get_group_typists(group: number[]): number[] {
@@ -71,6 +99,7 @@ export function clear_typing_data(): void {
     }
     inbound_timer_dict.clear();
     typists_dict.clear();
+    typist_progress_dict.clear();
 }
 
 export function add_edit_message_typing_id(message_id: number): void {

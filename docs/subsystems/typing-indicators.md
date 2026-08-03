@@ -106,6 +106,17 @@ For channel typing notifications, the server also handles the logic
 for determining which users should receive the typing events based
 on channel subscribers.
 
+## Transient bot progress extension
+
+The typing API may carry optional `progress_text` (at most 500 characters)
+and opaque `turn_id` (at most 128 characters) on channel or direct-message
+updates. Non-empty progress text is accepted only from authenticated bot users;
+it is plain text, is never persisted, and is emitted only on `start` events.
+A `stop` event deliberately omits it, and receivers clear it on either `stop`
+or normal typing expiry. Clients must HTML-escape the untrusted text when
+rendering it; clients that ignore these optional fields retain ordinary typing
+behavior and the existing recipient/access scoping.
+
 ## Receiving user
 
 When a user plays the role of a "receiving user," the client handles

@@ -36,6 +36,10 @@ export const typing_event_schema = z.intersection(
         id: z.number(),
         op: z.enum(["start", "stop"]),
         type: z.literal("typing"),
+        // Optional extensions are ignored by older clients, preserving normal
+        // typing indicators when a sender does not include progress text.
+        progress_text: z.optional(z.string()),
+        turn_id: z.optional(z.string()),
     }),
     z.discriminatedUnion("message_type", [
         z.object({
@@ -106,11 +110,41 @@ function get_users_typing_for_narrow(): number[] {
     return typing_data.get_all_direct_message_typists();
 }
 
+function get_typing_key_for_narrow(): string | undefined {
+    if (narrow_state.narrowed_by_topic_reply()) {
+        const stream_id = narrow_state.stream_id(narrow_state.filter(), true);
+        const topic = narrow_state.topic();
+        if (stream_id !== undefined && topic !== undefined) {
+            return typing_data.get_topic_key(stream_id, topic);
+        }
+        return undefined;
+    }
+
+    const current_filter = narrow_state.filter();
+    if (current_filter?.has_operator("dm")) {
+        const recipient_ids = current_filter.terms_with_operator("dm")[0]!.operand;
+        if (people.is_valid_bulk_user_ids_for_compose(recipient_ids, true)) {
+            return typing_data.get_direct_message_conversation_key([
+                ...recipient_ids,
+                current_user.user_id,
+            ]);
+        }
+    }
+    return undefined;
+}
+
 export function render_notifications_for_narrow(): void {
     const user_ids = get_users_typing_for_narrow();
+    const typing_key = get_typing_key_for_narrow();
     const users_typing = user_ids
         .map((user_id) => people.get_user_by_id_assert_valid(user_id))
-        .filter((person) => !person.is_inaccessible_user);
+        .filter((person) => !person.is_inaccessible_user)
+        .map((person) => {
+            const typing_progress = typing_key
+                ? typing_data.get_typist_progress(typing_key, person.user_id)?.progress_text
+                : undefined;
+            return typing_progress === undefined ? person : {...person, typing_progress};
+        });
     const num_of_users_typing = users_typing.length;
 
     if (num_of_users_typing === 0) {
@@ -158,6 +192,17 @@ function get_key(event: TypingEvent): string {
 
 export function hide_notification(event: TypingEvent): void {
     const key = get_key(event);
+    const active_turn_id = typing_data.get_typist_progress(key, event.sender.user_id)?.turn_id;
+    // A delayed stop from an older agent turn must not clear a newer turn's
+    // progress. Ordinary typing stops have no turn_id and retain stock Zulip
+    // behaviour.
+    if (
+        event.turn_id !== undefined &&
+        active_turn_id !== undefined &&
+        event.turn_id !== active_turn_id
+    ) {
+        return;
+    }
     typing_data.clear_inbound_timer(key);
 
     const removed = typing_data.remove_typist(key, event.sender.user_id);
@@ -182,6 +227,8 @@ export function display_notification(event: TypingEvent): void {
 
     const key = get_key(event);
     typing_data.add_typist(key, sender_id);
+    // A start without text replaces any prior status, just like a stop or expiry.
+    typing_data.set_typist_progress(key, sender_id, event.progress_text, event.turn_id);
 
     render_notifications_for_narrow();
 

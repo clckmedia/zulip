@@ -5,8 +5,8 @@ import * as util from "./util.ts";
 
 const typists_dict = new Map<string, number[]>();
 export type TypistProgress = {
-    progress_text?: string;
-    turn_id?: string;
+    progress_text: string | undefined;
+    turn_id: string | undefined;
 };
 const typist_progress_dict = new Map<string, Map<number, TypistProgress>>();
 const edit_message_typing_ids = new Set<number>();

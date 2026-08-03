@@ -19,7 +19,11 @@ import {user_settings} from "./user_settings.ts";
 let edit_box_worker: EditingStatusWorker;
 let worker: TypingStatusWorker;
 
-type TypingAPIRequest = {op: "start" | "stop"} & (
+type TypingAPIRequest = {
+    op: "start" | "stop";
+    progress_text?: string;
+    turn_id?: string;
+} & (
     | {
           type: string;
           to: string;

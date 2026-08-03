@@ -2,10 +2,12 @@ from typing import Annotated, Literal
 
 from django.http import HttpRequest, HttpResponse
 from django.utils.translation import gettext as _
-from pydantic import Json, NonNegativeInt
+from pydantic import Json, NonNegativeInt, StringConstraints
 
 from zerver.actions.message_edit import validate_user_can_edit_message
 from zerver.actions.typing import (
+    MAX_TYPING_PROGRESS_TEXT_LENGTH,
+    MAX_TYPING_TURN_ID_LENGTH,
     check_send_typing_notification,
     do_send_direct_message_edit_typing_notification,
     do_send_stream_message_edit_typing_notification,
@@ -34,7 +36,25 @@ def send_notification_backend(
     req_type: Annotated[Literal["direct", "stream", "channel"], ApiParamConfig("type")] = "direct",
     stream_id: Json[int | None] = None,
     topic: OptionalTopic = None,
+    progress_text: Annotated[
+        str | None,
+        StringConstraints(max_length=MAX_TYPING_PROGRESS_TEXT_LENGTH),
+        ApiParamConfig("progress_text"),
+    ] = None,
+    turn_id: Annotated[
+        str | None,
+        StringConstraints(max_length=MAX_TYPING_TURN_ID_LENGTH),
+        ApiParamConfig("turn_id"),
+    ] = None,
 ) -> HttpResponse:
+    if progress_text and not user_profile.is_bot:
+        raise JsonableError(_("Only bot users may send progress_text"))
+
+    # A stop event is authoritative for the sender/conversation pair, so it
+    # deliberately omits any prior transient status text.
+    if operator == "stop":
+        progress_text = None
+
     recipient_type_name = req_type
     if recipient_type_name == "channel":
         # For now, use "stream" from Message.API_RECIPIENT_TYPES.
@@ -58,7 +78,9 @@ def send_notification_backend(
         access_stream_for_send_message(user_profile, stream, forwarder_user_profile=None)
         topic = maybe_rename_general_chat_to_empty_topic(topic)
         topic = maybe_rename_no_topic_to_empty_topic(topic)
-        do_send_stream_typing_notification(user_profile, operator, stream, topic)
+        do_send_stream_typing_notification(
+            user_profile, operator, stream, topic, progress_text, turn_id
+        )
     else:
         if notification_to is None:
             raise JsonableError(_("Missing 'to' argument"))
@@ -71,7 +93,7 @@ def send_notification_backend(
         if not user_profile.send_private_typing_notifications:
             raise JsonableError(_("User has disabled typing notifications for direct messages"))
 
-        check_send_typing_notification(user_profile, user_ids, operator)
+        check_send_typing_notification(user_profile, user_ids, operator, progress_text, turn_id)
 
     return json_success(request)
 

@@ -1,1 +1,4 @@
-<li data-email="{{this.email}}" class="typing_notification">{{t "{full_name} is typing…" }}</li>
+<li data-email="{{this.email}}" class="typing_notification">
+    {{t "{full_name} is typing…" }}
+    {{#if this.typing_progress}}<span class="typing_progress"> — {{this.typing_progress}}</span>{{/if}}
+</li>

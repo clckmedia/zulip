@@ -1052,6 +1052,10 @@ class EventTypingStart(EventTypingStartCore):
     recipients: list[TypingPerson] | None = None
     stream_id: int | None = None
     topic: str | None = None
+    # Bot-authored plain-text status for a single transient typing update.
+    progress_text: str | None = None
+    # Opaque identifier supplied by the typing client; never interpreted by the server.
+    turn_id: str | None = None
 
 
 class EventTypingStopCore(BaseEvent):
@@ -1066,6 +1070,7 @@ class EventTypingStop(EventTypingStopCore):
     recipients: list[TypingPerson] | None = None
     stream_id: int | None = None
     topic: str | None = None
+    turn_id: str | None = None
 
 
 class RecipientFieldForTypingEditChannelMessage(BaseModel):

@@ -914,3 +914,73 @@ class TestSendTypingNotificationsSettings(ZulipTestCase):
         event = events[0]["event"]
         self.assert_length(event["recipient"]["user_ids"], 1)
         self.assertEqual([hamlet.id], event["recipient"]["user_ids"])
+
+
+class TypingProgressTest(ZulipTestCase):
+    def test_bot_progress_is_forwarded_on_start_and_cleared_on_stop(self) -> None:
+        owner = self.example_user("hamlet")
+        bot = self.create_test_bot("typing-progress-bot", owner)
+        turn_id = "hermes-turn-123"
+        progress_text = "Checking the request"
+
+        with self.capture_send_event_calls(expected_num_events=1) as events:
+            result = self.api_post(
+                bot,
+                "/api/v1/typing",
+                {
+                    "op": "start",
+                    "to": orjson.dumps([owner.id]).decode(),
+                    "progress_text": progress_text,
+                    "turn_id": turn_id,
+                },
+            )
+        self.assert_json_success(result)
+        event = events[0]["event"]
+        self.assertEqual(event["progress_text"], progress_text)
+        self.assertEqual(event["turn_id"], turn_id)
+
+        with self.capture_send_event_calls(expected_num_events=1) as events:
+            result = self.api_post(
+                bot,
+                "/api/v1/typing",
+                {
+                    "op": "stop",
+                    "to": orjson.dumps([owner.id]).decode(),
+                    "progress_text": "This must not be forwarded",
+                    "turn_id": turn_id,
+                },
+            )
+        self.assert_json_success(result)
+        event = events[0]["event"]
+        self.assertNotIn("progress_text", event)
+        self.assertEqual(event["turn_id"], turn_id)
+
+    def test_progress_text_is_bot_only_and_bounded(self) -> None:
+        sender = self.example_user("hamlet")
+        recipient = self.example_user("othello")
+        params = {
+            "op": "start",
+            "to": orjson.dumps([recipient.id]).decode(),
+            "progress_text": "Checking the request",
+        }
+        result = self.api_post(sender, "/api/v1/typing", params)
+        self.assert_json_error(result, "Only bot users may send progress_text")
+
+        bot = self.create_test_bot("typing-progress-bot", sender)
+        params["progress_text"] = "x" * 501
+        result = self.api_post(bot, "/api/v1/typing", params)
+        self.assert_json_error(result, "progress_text is too long (limit: 500 characters)")
+
+    def test_turn_id_is_bounded(self) -> None:
+        owner = self.example_user("hamlet")
+        bot = self.create_test_bot("typing-progress-bot", owner)
+        result = self.api_post(
+            bot,
+            "/api/v1/typing",
+            {
+                "op": "start",
+                "to": orjson.dumps([owner.id]).decode(),
+                "turn_id": "x" * 129,
+            },
+        )
+        self.assert_json_error(result, "turn_id is too long (limit: 128 characters)")

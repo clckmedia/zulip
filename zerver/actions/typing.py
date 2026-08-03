@@ -9,9 +9,17 @@ from zerver.models import Realm, Stream, UserProfile
 from zerver.models.users import get_user_by_id_in_realm_including_cross_realm
 from zerver.tornado.django_api import send_event_rollback_unsafe
 
+MAX_TYPING_PROGRESS_TEXT_LENGTH = 500
+MAX_TYPING_TURN_ID_LENGTH = 128
+
 
 def do_send_typing_notification(
-    realm: Realm, sender: UserProfile, recipient_user_profiles: list[UserProfile], operator: str
+    realm: Realm,
+    sender: UserProfile,
+    recipient_user_profiles: list[UserProfile],
+    operator: str,
+    progress_text: str | None = None,
+    turn_id: str | None = None,
 ) -> None:
     sender_dict = {"user_id": sender.id, "email": sender.email}
 
@@ -26,6 +34,10 @@ def do_send_typing_notification(
         sender=sender_dict,
         recipients=recipient_dicts,
     )
+    if operator == "start" and progress_text:
+        event["progress_text"] = progress_text
+    if turn_id is not None:
+        event["turn_id"] = turn_id
 
     # Only deliver the notification to active user recipients
     user_ids_to_notify = [
@@ -39,7 +51,13 @@ def do_send_typing_notification(
 
 # check_send_typing_notification:
 # Checks the typing notification and sends it
-def check_send_typing_notification(sender: UserProfile, user_ids: list[int], operator: str) -> None:
+def check_send_typing_notification(
+    sender: UserProfile,
+    user_ids: list[int],
+    operator: str,
+    progress_text: str | None = None,
+    turn_id: str | None = None,
+) -> None:
     realm = sender.realm
 
     if sender.id not in user_ids:
@@ -66,11 +84,18 @@ def check_send_typing_notification(sender: UserProfile, user_ids: list[int], ope
         sender=sender,
         recipient_user_profiles=user_profiles,
         operator=operator,
+        progress_text=progress_text,
+        turn_id=turn_id,
     )
 
 
 def do_send_stream_typing_notification(
-    sender: UserProfile, operator: str, stream: Stream, topic_name: str
+    sender: UserProfile,
+    operator: str,
+    stream: Stream,
+    topic_name: str,
+    progress_text: str | None = None,
+    turn_id: str | None = None,
 ) -> None:
     sender_dict = {"user_id": sender.id, "email": sender.email}
 
@@ -82,6 +107,10 @@ def do_send_stream_typing_notification(
         stream_id=stream.id,
         topic=topic_name,
     )
+    if operator == "start" and progress_text:
+        event["progress_text"] = progress_text
+    if turn_id is not None:
+        event["turn_id"] = turn_id
 
     subscriptions_query = get_active_subscriptions_for_stream_id(
         stream.id, include_deactivated_users=False

@@ -25105,6 +25105,21 @@ paths:
                     were only for direct messages.
                   type: string
                   example: typing notifications
+                progress_text:
+                  description: |
+                    Optional plain-text transient progress status for a bot typing update.
+                    Only bot users may provide a non-empty value. This field is ignored for
+                    `"stop"` events and is limited to 500 characters.
+                  type: string
+                  maxLength: 500
+                  example: Checking the request
+                turn_id:
+                  description: |
+                    Optional opaque client-provided identifier for the transient typing turn.
+                    The server does not interpret this value. Limited to 128 characters.
+                  type: string
+                  maxLength: 128
+                  example: hermes-turn-123
               required:
                 - op
             encoding:

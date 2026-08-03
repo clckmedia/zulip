@@ -108,6 +108,27 @@ test("basics", () => {
     assert.deepEqual(typing_data.get_topic_typists(stream_id, topic), []);
 });
 
+test("typing progress is replaced and cleared with its typist", () => {
+    const key = typing_data.get_topic_key(1, "typing notifications");
+
+    typing_data.add_typist(key, 8);
+    typing_data.set_typist_progress(key, 8, "Checking the request", "turn-1");
+    assert.deepEqual(typing_data.get_typist_progress(key, 8), {
+        progress_text: "Checking the request",
+        turn_id: "turn-1",
+    });
+
+    // A new start update replaces, rather than appends to, transient progress.
+    typing_data.set_typist_progress(key, 8, "Preparing the answer", "turn-1");
+    assert.deepEqual(typing_data.get_typist_progress(key, 8), {
+        progress_text: "Preparing the answer",
+        turn_id: "turn-1",
+    });
+
+    typing_data.remove_typist(key, 8);
+    assert.equal(typing_data.get_typist_progress(key, 8), undefined);
+});
+
 test("muted_typists_excluded", () => {
     const stream_id = 1;
     const topic = "typing notifications";

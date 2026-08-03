@@ -79,7 +79,9 @@ run_test("render_notifications_for_narrow", ({override, mock_template}) => {
         "turn-1",
     );
     typing_events.render_notifications_for_narrow();
-    assert.ok($typing_notifications.html().includes("&lt;strong&gt;Checking the request&lt;/strong&gt;"));
+    assert.ok(
+        $typing_notifications.html().includes("&lt;strong&gt;Checking the request&lt;/strong&gt;"),
+    );
     assert.ok(!$typing_notifications.html().includes("<strong>Checking the request</strong>"));
 
     // Having 3(=MAX_USERS_TO_DISPLAY_NAME) typists should also display only names

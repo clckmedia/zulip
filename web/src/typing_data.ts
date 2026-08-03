@@ -61,7 +61,8 @@ export function set_typist_progress(
     progress_text: string | undefined,
     turn_id: string | undefined,
 ): void {
-    const progress_for_conversation = typist_progress_dict.get(key) ?? new Map();
+    const progress_for_conversation =
+        typist_progress_dict.get(key) ?? new Map<number, TypistProgress>();
     progress_for_conversation.set(typist, {progress_text, turn_id});
     typist_progress_dict.set(key, progress_for_conversation);
 }
